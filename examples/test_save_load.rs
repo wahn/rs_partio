@@ -44,7 +44,7 @@ fn make_data() -> partio::ParticlesSimple {
             // float* life=foo.dataWrite<float>(lifeAttr,index);
             let ref mut life = data_ref[life_attr.attribute_index];
             // life[0]=-1.2+i;
-            let life_0: f64 = -0.2_f64 + i as f64;
+            let life_0: f64 = -1.2_f64 + i as f64;
             let raw_bytes: [u8; 8] = unsafe { std::mem::transmute(life_0) };
             for bi in 0..8 {
                 life[bi + 0 * 8 + 2 * 8 * i] = raw_bytes[bi];
