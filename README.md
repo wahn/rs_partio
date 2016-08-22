@@ -5,3 +5,8 @@
 **Rust** crate to implement Disney's C++ partio library:
 
 http://www.disneyanimation.com/technology/partio.html
+
+Current **Rust** documentation:
+
+https://www.janwalter.org/doc/rust/partio/index.html
+
