@@ -62,8 +62,15 @@
 //! }
 //! ```
 
+extern crate byteorder;
+
+use byteorder::{BigEndian, WriteBytesExt};
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::BufWriter;
+use std::io::prelude::*;
 use std::mem;
+use std::path::Path;
 
 pub type ParticleIndex = u64;
 
@@ -91,7 +98,7 @@ pub enum ParticleAttributeType {
 #[derive(Debug, Copy, Clone)]
 pub struct ParticleAttribute {
     ptype: ParticleAttributeType,
-    count: i8, // Number of entries, should be 3 if type is VECTOR
+    count: u8, // Number of entries, should be 3 if type is VECTOR
     name: &'static str, // Name of attribute
     attribute_index: usize, // user should not use or change
 }
@@ -99,7 +106,7 @@ pub struct ParticleAttribute {
 #[derive(Debug)]
 pub struct FixedAttribute {
     ptype: ParticleAttributeType,
-    count: i8, // Number of entries, should be 3 if type is VECTOR
+    count: u8, // Number of entries, should be 3 if type is VECTOR
     name: &'static str, // Name of attribute
 }
 
@@ -114,8 +121,7 @@ pub struct ParticlesSimple {
 }
 
 pub trait DataWriter<T> {
-    fn data_write(&mut self,
-                  data: &T);
+    fn data_write(&mut self, data: &T);
 }
 
 impl ParticlesSimple {
@@ -135,7 +141,7 @@ impl ParticlesSimple {
     pub fn add_attribute(&mut self,
                          attribute: &'static str,
                          ptype: ParticleAttributeType,
-                         count: i8)
+                         count: u8)
                          -> ParticleAttribute {
         let len = self.attributes.len();
         let attr = ParticleAttribute {
@@ -147,10 +153,10 @@ impl ParticlesSimple {
         self.attributes.push(attr);
         let type_size: usize = match ptype {
             ParticleAttributeType::NONE => 0usize,
-            ParticleAttributeType::VECTOR => mem::size_of::<f64>(),
-            ParticleAttributeType::FLOAT => mem::size_of::<f64>(),
-            ParticleAttributeType::INT => mem::size_of::<u64>(),
-            ParticleAttributeType::INDEXEDSTR => mem::size_of::<u64>(),
+            ParticleAttributeType::VECTOR => mem::size_of::<f32>(),
+            ParticleAttributeType::FLOAT => mem::size_of::<f32>(),
+            ParticleAttributeType::INT => mem::size_of::<u32>(),
+            ParticleAttributeType::INDEXEDSTR => mem::size_of::<u32>(),
         };
         let stride: usize = type_size * count as usize;
         self.attribute_strides.push(stride);
@@ -164,15 +170,233 @@ impl ParticlesSimple {
         self.particle_count += 1;
         index
     }
+    /// Write particle data to external file.
+    pub fn write(&self, filename: &str) {
+        // TODO: See ParticleIO.cpp
+        // TODO: extensionIgnoringGz
+        let path = Path::new(filename);
+        let extension = path.extension();
+        let extension: &str = extension.unwrap().to_str().unwrap();
+        println!("\"{}\" has extension {:?}", filename, extension);
+        // TODO: See writeBGEO in BGEO.cpp
+        let mut count_bytes: usize = 0_usize;
+        let f = File::create(&path).unwrap();
+        {
+            let mut writer = BufWriter::new(f);
+            // magic
+            let magic: String = String::from("Bgeo");
+            let bytes: Vec<u8> = magic.into_bytes();
+            count_bytes += writer.write(&bytes).unwrap();
+            // version_char
+            let version_char: String = String::from("V");
+            let bytes: Vec<u8> = version_char.into_bytes();
+            count_bytes += writer.write(&bytes).unwrap();
+            // version
+            let version: u32 = 5;
+            let mut wtr = vec![];
+            wtr.write_u32::<BigEndian>(version).unwrap();
+            let bytes: Vec<u8> = wtr;
+            count_bytes += writer.write(&bytes).unwrap();
+            // n_points
+            let n_points: u32 = self.num_particles() as u32;
+            let mut wtr = vec![];
+            wtr.write_u32::<BigEndian>(n_points).unwrap();
+            let bytes: Vec<u8> = wtr;
+            count_bytes += writer.write(&bytes).unwrap();
+            // n_prims
+            let n_prims: u32 = 0_u32;
+            let mut wtr = vec![];
+            wtr.write_u32::<BigEndian>(n_prims).unwrap();
+            let bytes: Vec<u8> = wtr;
+            count_bytes += writer.write(&bytes).unwrap();
+            // n_point_groups
+            let n_point_groups: u32 = 0_u32;
+            let mut wtr = vec![];
+            wtr.write_u32::<BigEndian>(n_point_groups).unwrap();
+            let bytes: Vec<u8> = wtr;
+            count_bytes += writer.write(&bytes).unwrap();
+            // n_prim_groups
+            let n_prim_groups: u32 = 0_u32;
+            let mut wtr = vec![];
+            wtr.write_u32::<BigEndian>(n_prim_groups).unwrap();
+            let bytes: Vec<u8> = wtr;
+            count_bytes += writer.write(&bytes).unwrap();
+            // n_point_attrib
+            let n_point_attrib: u32 = (self.num_attributes() - 1_usize) as u32;
+            let mut wtr = vec![];
+            wtr.write_u32::<BigEndian>(n_point_attrib).unwrap();
+            let bytes: Vec<u8> = wtr;
+            count_bytes += writer.write(&bytes).unwrap();
+            // n_vertex_attrib
+            let n_vertex_attrib: u32 = 0_u32;
+            let mut wtr = vec![];
+            wtr.write_u32::<BigEndian>(n_vertex_attrib).unwrap();
+            let bytes: Vec<u8> = wtr;
+            count_bytes += writer.write(&bytes).unwrap();
+            // n_prim_attrib
+            let n_prim_attrib: u32 = 0_u32;
+            let mut wtr = vec![];
+            wtr.write_u32::<BigEndian>(n_prim_attrib).unwrap();
+            let bytes: Vec<u8> = wtr;
+            count_bytes += writer.write(&bytes).unwrap();
+            // n_attrib
+            let n_attrib: u32 = self.num_fixed_attributes() as u32;
+            let mut wtr = vec![];
+            wtr.write_u32::<BigEndian>(n_attrib).unwrap();
+            let bytes: Vec<u8> = wtr;
+            count_bytes += writer.write(&bytes).unwrap();
+            // write default values for attributes
+            let mut found_position: bool = false;
+            let mut num_particle_bytes = 0_usize;
+            for i in 0..self.num_attributes() {
+                num_particle_bytes += self.attribute_strides[i];
+                let attr = self.attributes[i];
+                if attr.name == "position" {
+                    found_position = true;
+                } else {
+                    // attr.name
+                    let bytes: Vec<u8> = String::from(attr.name).into_bytes();
+                    count_bytes += writer.write(&bytes).unwrap();
+                    // check particle type
+                    let houdini_type: u32;
+                    match attr.ptype {
+                        ParticleAttributeType::INDEXEDSTR => {
+                            println!("TODO: attr.ptype == ParticleAttributeType::INDEXEDSTR");
+                            // TODO: size
+                            // houdini_type
+                            houdini_type = 4_u32;
+                            let mut wtr = vec![];
+                            wtr.write_u32::<BigEndian>(houdini_type).unwrap();
+                            let bytes: Vec<u8> = wtr;
+                            count_bytes += writer.write(&bytes).unwrap();
+                            // TODO: numIndexes
+                        }
+                        _ => {
+                            // attr.count
+                            let asize: u16 = attr.count as u16;
+                            let mut wtr = vec![];
+                            wtr.write_u16::<BigEndian>(asize).unwrap();
+                            let bytes: Vec<u8> = wtr;
+                            count_bytes += writer.write(&bytes).unwrap();
+                            // houdini_type
+                            houdini_type = match attr.ptype {
+                                ParticleAttributeType::FLOAT => 0_u32,
+                                ParticleAttributeType::INT => 1_u32,
+                                ParticleAttributeType::VECTOR => 5_u32,
+                                _ => 0_u32,
+                            };
+                            let mut wtr = vec![];
+                            wtr.write_u32::<BigEndian>(houdini_type).unwrap();
+                            let bytes: Vec<u8> = wtr;
+                            count_bytes += writer.write(&bytes).unwrap();
+                            // default values
+                            let default_value: u32 = 0_u32;
+                            for _ in 0..attr.count {
+                                let mut wtr = vec![];
+                                wtr.write_u32::<BigEndian>(default_value).unwrap();
+                                let bytes: Vec<u8> = wtr;
+                                count_bytes += writer.write(&bytes).unwrap();
+                            }
+                        }
+                    }
+                }
+            }
+            if !found_position {
+                println!("Partio: didn't find attr 'position' while trying to write BGEO");
+                // TODO? return false;
+            }
+            let mut slice: &[u8] = &self.attribute_data[..];
+            let mut particle: &[u8];
+            let mut attribute: &[u8];
+            let mut data: &[u8];
+            for p in 0..self.num_particles() {
+                println!("particle #{}", p + 1);
+                let tuple = slice.split_at(num_particle_bytes);
+                particle = tuple.0;
+                slice = tuple.1;
+                for a in 0..self.num_attributes() {
+                    let particle_attribute = self.attributes[a];
+                    let tuple = particle.split_at(particle_attribute.count as usize * 4_usize);
+                    attribute = tuple.0;
+                    particle = tuple.1;
+                    for c in 0..particle_attribute.count {
+                        let tuple = attribute.split_at(4);
+                        data = tuple.0;
+                        attribute = tuple.1;
+                        match particle_attribute.ptype {
+                            ParticleAttributeType::NONE => {
+                                println!("{}[{}] = NONE", particle_attribute.name, c);
+                            }
+                            ParticleAttributeType::VECTOR => {
+                                let buf = [data[0], data[1], data[2], data[3]];
+                                let v_value: f32 = unsafe { std::mem::transmute(buf) };
+                                println!("{}[{}] = {} {:?}",
+                                         particle_attribute.name,
+                                         c,
+                                         v_value,
+                                         data);
+                                let mut wtr = vec![];
+                                wtr.write_f32::<BigEndian>(v_value).unwrap();
+                                let bytes: Vec<u8> = wtr;
+                                count_bytes += writer.write(&bytes).unwrap();
+                                if (particle_attribute.name == "position") & (c == 2) {
+                                    // set homogeneous coordinate
+                                    let v_value: f32 = 1.0_f32;
+                                    let mut wtr = vec![];
+                                    wtr.write_f32::<BigEndian>(v_value).unwrap();
+                                    let bytes: Vec<u8> = wtr;
+                                    count_bytes += writer.write(&bytes).unwrap();
+                                }
+                            }
+                            ParticleAttributeType::FLOAT => {
+                                let buf = [data[0], data[1], data[2], data[3]];
+                                let f_value: f32 = unsafe { std::mem::transmute(buf) };
+                                println!("{}[{}] = {} {:?}",
+                                         particle_attribute.name,
+                                         c,
+                                         f_value,
+                                         data);
+                                let mut wtr = vec![];
+                                wtr.write_f32::<BigEndian>(f_value).unwrap();
+                                let bytes: Vec<u8> = wtr;
+                                count_bytes += writer.write(&bytes).unwrap();
+                            }
+                            ParticleAttributeType::INT => {
+                                let buf = [data[0], data[1], data[2], data[3]];
+                                let i_value: u32 = unsafe { std::mem::transmute(buf) };
+                                println!("{}[{}] = {} {:?}",
+                                         particle_attribute.name,
+                                         c,
+                                         i_value,
+                                         data);
+                                let mut wtr = vec![];
+                                wtr.write_u32::<BigEndian>(i_value).unwrap();
+                                let bytes: Vec<u8> = wtr;
+                                count_bytes += writer.write(&bytes).unwrap();
+                            }
+                            ParticleAttributeType::INDEXEDSTR => {
+                                println!("{}[{}] = {:?}", particle_attribute.name, c, data);
+                            }
+                        }
+                    }
+                }
+            }
+            // TODO: fixed attributes
+            // write extra bytes
+            let bytes: Vec<u8> = vec![0x00, 0xff];
+            count_bytes += writer.write(&bytes).unwrap();
+        } // the buffer is flushed once writer goes out of scope
+        println!("{} bytes written", count_bytes);
+    }
 }
 
 impl<T> DataWriter<T> for ParticlesSimple {
     /// Stores particle data of various types in vector of bytes.
-    fn data_write(&mut self,
-                  data: &T) {
+    fn data_write(&mut self, data: &T) {
         unsafe {
-            self.attribute_data.extend_from_slice(std::slice::from_raw_parts(std::mem::transmute(data),
-                                                                             std::mem::size_of::<T>()));
+            self.attribute_data
+                .extend_from_slice(std::slice::from_raw_parts(std::mem::transmute(data),
+                                                              std::mem::size_of::<T>()));
         }
     }
 }
