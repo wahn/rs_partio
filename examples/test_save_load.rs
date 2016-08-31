@@ -34,8 +34,10 @@ fn make_data() -> partio::ParticlesSimple {
 
 fn test_save_load(p: &partio::ParticlesSimple, filename: &str) {
     println!("Testing with file '{}'", filename);
-    // TODO: Partio::write(filename,*p);
-    p.write(filename);
+    match p.write(filename) {
+        Ok(_) => println!("{} written", filename),
+        Err(err) => println!("Error: {:?}", err),
+    }
     // TODO: Partio::ParticlesData* pnew=Partio::read(filename);
 }
 

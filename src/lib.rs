@@ -56,9 +56,18 @@
 //!     foo // return
 //! }
 //!
+//! fn test_save_load(p: &partio::ParticlesSimple, filename: &str) {
+//!     println!("Testing with file '{}'", filename);
+//!     match p.write(filename) {
+//!         Ok(_) => println!("{} written", filename),
+//!         Err(err) => println!("Error: {:?}", err),
+//!     }
+//! }
+//!
 //! fn main() {
 //!     let foo: partio::ParticlesSimple = make_data();
 //!     println!("{:?}", foo);
+//!     test_save_load(&foo, "test.bgeo");
 //! }
 //! ```
 
@@ -68,6 +77,7 @@ use byteorder::{BigEndian, WriteBytesExt};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufWriter;
+use std::io::Result;
 use std::io::prelude::*;
 use std::mem;
 use std::path::Path;
@@ -171,7 +181,7 @@ impl ParticlesSimple {
         index
     }
     /// Write particle data to external file.
-    pub fn write(&self, filename: &str) {
+    pub fn write(&self, filename: &str) -> Result<()> {
         // TODO: See ParticleIO.cpp
         // TODO: extensionIgnoringGz
         let path = Path::new(filename);
@@ -194,55 +204,55 @@ impl ParticlesSimple {
             // version
             let version: u32 = 5;
             let mut wtr = vec![];
-            wtr.write_u32::<BigEndian>(version).unwrap();
+            try!(wtr.write_u32::<BigEndian>(version));
             let bytes: Vec<u8> = wtr;
             count_bytes += writer.write(&bytes).unwrap();
             // n_points
             let n_points: u32 = self.num_particles() as u32;
             let mut wtr = vec![];
-            wtr.write_u32::<BigEndian>(n_points).unwrap();
+            try!(wtr.write_u32::<BigEndian>(n_points));
             let bytes: Vec<u8> = wtr;
             count_bytes += writer.write(&bytes).unwrap();
             // n_prims
             let n_prims: u32 = 0_u32;
             let mut wtr = vec![];
-            wtr.write_u32::<BigEndian>(n_prims).unwrap();
+            try!(wtr.write_u32::<BigEndian>(n_prims));
             let bytes: Vec<u8> = wtr;
             count_bytes += writer.write(&bytes).unwrap();
             // n_point_groups
             let n_point_groups: u32 = 0_u32;
             let mut wtr = vec![];
-            wtr.write_u32::<BigEndian>(n_point_groups).unwrap();
+            try!(wtr.write_u32::<BigEndian>(n_point_groups));
             let bytes: Vec<u8> = wtr;
             count_bytes += writer.write(&bytes).unwrap();
             // n_prim_groups
             let n_prim_groups: u32 = 0_u32;
             let mut wtr = vec![];
-            wtr.write_u32::<BigEndian>(n_prim_groups).unwrap();
+            try!(wtr.write_u32::<BigEndian>(n_prim_groups));
             let bytes: Vec<u8> = wtr;
             count_bytes += writer.write(&bytes).unwrap();
             // n_point_attrib
             let n_point_attrib: u32 = (self.num_attributes() - 1_usize) as u32;
             let mut wtr = vec![];
-            wtr.write_u32::<BigEndian>(n_point_attrib).unwrap();
+            try!(wtr.write_u32::<BigEndian>(n_point_attrib));
             let bytes: Vec<u8> = wtr;
             count_bytes += writer.write(&bytes).unwrap();
             // n_vertex_attrib
             let n_vertex_attrib: u32 = 0_u32;
             let mut wtr = vec![];
-            wtr.write_u32::<BigEndian>(n_vertex_attrib).unwrap();
+            try!(wtr.write_u32::<BigEndian>(n_vertex_attrib));
             let bytes: Vec<u8> = wtr;
             count_bytes += writer.write(&bytes).unwrap();
             // n_prim_attrib
             let n_prim_attrib: u32 = 0_u32;
             let mut wtr = vec![];
-            wtr.write_u32::<BigEndian>(n_prim_attrib).unwrap();
+            try!(wtr.write_u32::<BigEndian>(n_prim_attrib));
             let bytes: Vec<u8> = wtr;
             count_bytes += writer.write(&bytes).unwrap();
             // n_attrib
             let n_attrib: u32 = self.num_fixed_attributes() as u32;
             let mut wtr = vec![];
-            wtr.write_u32::<BigEndian>(n_attrib).unwrap();
+            try!(wtr.write_u32::<BigEndian>(n_attrib));
             let bytes: Vec<u8> = wtr;
             count_bytes += writer.write(&bytes).unwrap();
             // write default values for attributes
@@ -266,7 +276,7 @@ impl ParticlesSimple {
                             // houdini_type
                             houdini_type = 4_u32;
                             let mut wtr = vec![];
-                            wtr.write_u32::<BigEndian>(houdini_type).unwrap();
+                            try!(wtr.write_u32::<BigEndian>(houdini_type));
                             let bytes: Vec<u8> = wtr;
                             count_bytes += writer.write(&bytes).unwrap();
                             // TODO: numIndexes
@@ -275,7 +285,7 @@ impl ParticlesSimple {
                             // attr.count
                             let asize: u16 = attr.count as u16;
                             let mut wtr = vec![];
-                            wtr.write_u16::<BigEndian>(asize).unwrap();
+                            try!(wtr.write_u16::<BigEndian>(asize));
                             let bytes: Vec<u8> = wtr;
                             count_bytes += writer.write(&bytes).unwrap();
                             // houdini_type
@@ -286,14 +296,14 @@ impl ParticlesSimple {
                                 _ => 0_u32,
                             };
                             let mut wtr = vec![];
-                            wtr.write_u32::<BigEndian>(houdini_type).unwrap();
+                            try!(wtr.write_u32::<BigEndian>(houdini_type));
                             let bytes: Vec<u8> = wtr;
                             count_bytes += writer.write(&bytes).unwrap();
                             // default values
                             let default_value: u32 = 0_u32;
                             for _ in 0..attr.count {
                                 let mut wtr = vec![];
-                                wtr.write_u32::<BigEndian>(default_value).unwrap();
+                                try!(wtr.write_u32::<BigEndian>(default_value));
                                 let bytes: Vec<u8> = wtr;
                                 count_bytes += writer.write(&bytes).unwrap();
                             }
@@ -336,14 +346,14 @@ impl ParticlesSimple {
                                          v_value,
                                          data);
                                 let mut wtr = vec![];
-                                wtr.write_f32::<BigEndian>(v_value).unwrap();
+                                try!(wtr.write_f32::<BigEndian>(v_value));
                                 let bytes: Vec<u8> = wtr;
                                 count_bytes += writer.write(&bytes).unwrap();
                                 if (particle_attribute.name == "position") & (c == 2) {
                                     // set homogeneous coordinate
                                     let v_value: f32 = 1.0_f32;
                                     let mut wtr = vec![];
-                                    wtr.write_f32::<BigEndian>(v_value).unwrap();
+                                    try!(wtr.write_f32::<BigEndian>(v_value));
                                     let bytes: Vec<u8> = wtr;
                                     count_bytes += writer.write(&bytes).unwrap();
                                 }
@@ -357,7 +367,7 @@ impl ParticlesSimple {
                                          f_value,
                                          data);
                                 let mut wtr = vec![];
-                                wtr.write_f32::<BigEndian>(f_value).unwrap();
+                                try!(wtr.write_f32::<BigEndian>(f_value));
                                 let bytes: Vec<u8> = wtr;
                                 count_bytes += writer.write(&bytes).unwrap();
                             }
@@ -370,7 +380,7 @@ impl ParticlesSimple {
                                          i_value,
                                          data);
                                 let mut wtr = vec![];
-                                wtr.write_u32::<BigEndian>(i_value).unwrap();
+                                try!(wtr.write_u32::<BigEndian>(i_value));
                                 let bytes: Vec<u8> = wtr;
                                 count_bytes += writer.write(&bytes).unwrap();
                             }
@@ -387,6 +397,7 @@ impl ParticlesSimple {
             count_bytes += writer.write(&bytes).unwrap();
         } // the buffer is flushed once writer goes out of scope
         println!("{} bytes written", count_bytes);
+        Ok(())
     }
 }
 
