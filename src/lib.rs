@@ -420,7 +420,7 @@ impl ParticlesSimpleBuilder {
         ParticlesSimpleBuilder {}
     }
 
-    pub fn finalize(&self) -> ParticlesSimple {
+    pub fn finalize(self) -> ParticlesSimple {
         let attribute_data: Vec<u8> = Vec::new();
         let name_to_attribute: HashMap<&str, u64> = HashMap::new();
         let attributes: Vec<ParticleAttribute> = Vec::new();
